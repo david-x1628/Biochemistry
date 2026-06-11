@@ -6,6 +6,7 @@ from Bio import SeqIO
 from Bio import SeqRecord
 #from Bio import Align
 import requests  # for 'API calls', i. e. for retrieving information from an internet endpoint
+import numpy  # for matrix
 import pandas as pd  # for matrix as 'DataFrame', i. e. as tabular data type
 
 
@@ -26,18 +27,26 @@ def fetch_uniprot_fasta(accession: str, timeout: int = 10) -> Bio.SeqRecord | No
         None if fetching or parsing fails.
     """
     
-
+    # Set endpoint for API call
+    # -> API call = communication between programs
     url = f'https://rest.uniprot.org/uniprotkb/{accession}.fasta'
     
-    
-    try:
+
+    try:  # try to run the code below and if an error occurs, run the code below 'except'  
+        
+        # API call:
+        # requests.get(url) gets the information provided at the url;
+        # 'timeout' determines that if there is no response, the call will
+        # be canceled;
+        # response from the url endpoint is stored in 'response'
         response = requests.get(url, timeout=timeout).text
 
+        # convert response to FASTA format amd store in 'record'
         record = SeqIO.read(io.StringIO(response), 'fasta')
 
         return record
 
-    except:
+    except:  # run if an exception (= error at runtime) occurs
         return None
 
 
@@ -107,20 +116,21 @@ def pairwise_identity(seq1: Bio.Seq, seq2: Bio.Seq):
         percent_identity (int): Percent identity between seq1 and seq2.
     """
 
+    # check if the length of the two given sequences is the same
     if len(seq1) != len(seq2):
         raise ValueError("The given sequences do not have the same length.")
 
-    aligner = Bio.Align.PairwiseAligner()
-    score = aligner.score(seq1, seq2)
-    percent_identity = (score / len(seq1)) * 100
+    aligner = Bio.Align.PairwiseAligner()  # initialise PairwiseAligner object
+    score = aligner.score(seq1, seq2)  # calculate score of the given sequences
+    percent_identity = (score / len(seq1)) * 100  # calculate identity in percent
 
     return percent_identity
 
 
-print("\nDie prozentuale Identität der beiden Beispiele beträgt: ", pairwise_identity(P69905.seq, D1MGQ2.seq))
+#print("\nDie prozentuale Identität der beiden Beispiele beträgt: ", pairwise_identity(P69905.seq, D1MGQ2.seq))
 
 
-# TASK 3.2
+# TASK 3.2  -  unlabeled DataFrame matrix
 
 def build_identity_matrix(records: list[Bio.SeqRecord]) -> pd.DataFrame:
     """Build matrix of percentage identities of all records.
@@ -142,7 +152,8 @@ def build_identity_matrix(records: list[Bio.SeqRecord]) -> pd.DataFrame:
 
     return identity_matrix
 
-# TASK 3.2  -  with labelled matrix
+
+# TASK 3.2  -  with labelled DataFrame matrix
 
 def build_identity_matrix_labelled(records: list[Bio.SeqRecord]) -> pd.DataFrame:
     """Build matrix of percentage identities of all records.
@@ -173,7 +184,7 @@ records = records = [P69905, Q8WXF3, P00709, O15392]
 
 print("\n\n\n")
 print("Gewichtematrix mit einigen Beispielen:\n\n")
-print(build_identity_matrix(records))
+#print(build_identity_matrix(records))
 print("\n\n\n")
 
 
@@ -193,9 +204,39 @@ def find_conserved_columns(records: Bio.SeqRecord) -> list[int]:
             positions of the specified records.
     """
 
-    for record in records:
-        for comparison in records:
-            if records.index(record) == records.index(comparison):
+    i = 0
+    conserved_columns = []
+
+    for position in records[0].seq:  # loop through the first sequence
+        letters = [position]  # initialise list and store one position to compare the others to
+        
+        for record in records:  # loop through all records
+           
+            if record.id == records[0].id:  # skip first record because first serves as comparison
                 continue
-            else:
-                pass
+            
+            if record.seq[i] in letters:  # check if the i. letter is equal to 'position'
+                
+                if i not in conserved_columns:  # if already appended, do not append twice
+
+                    conserved_columns.append(i)  # append position that is equal among all compared sequences
+
+            else:  # for every position that is not equal among all sequences
+
+                try: 
+
+                    conserved_columns.pop(conserved_columns.index(i))  # delete this position from the list
+
+                except ValueError:  # filter for those positions that never made it to the list
+
+                    pass
+
+                break  # end loop for this position since it is not equal among all sequences
+            
+        i += 1
+    
+    return conserved_columns
+
+print("Und welche Positionen sind in mehreren gegebenen Sequenzen gleich?\n\n")
+print(find_conserved_columns([P69905, P00709]))
+        
